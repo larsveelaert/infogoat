@@ -1,0 +1,11 @@
+bundling is with go build !crosscompile 
+
+go-bind is used if I want to include files (this needs to be done every new file that is included
+
+go get -u github.com/jteeuwen/go-bindata/...
+go-bindata -o ./src/bindata.go data/...
+
+
+
+##TODO
+qdd go generate command to make stuff go automatic -> while building if something changed
