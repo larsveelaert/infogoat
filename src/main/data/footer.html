@@ -1,0 +1,20 @@
+	<!--TEMPLATE will go here -->
+	</div>
+	<div style="text-align:right">
+	<strong>This demo is available on {{.Url}}</strong>
+	</div>
+
+	<script>
+		if (window.location.pathname.indexOf('safe') != -1) {
+			document.getElementById("variant_link").href = "javascript:document.location=window.location.pathname.replace('safe','vulnerable')";
+			document.getElementById("variant_link").innerHTML = "Go to vulnerable variant"
+			document.getElementById("variant").innerHTML = "This is the safe variant"
+		} else {
+			document.getElementById("variant_link").href = "javascript:document.location=window.location.pathname.replace('vulnerable','safe')";
+			document.getElementById("variant_link").innerHTML = "Go to safe variant"
+			document.getElementById("variant").innerHTML = "This is the vulnerable variant"
+		}
+
+
+	</script>
+</body></html>

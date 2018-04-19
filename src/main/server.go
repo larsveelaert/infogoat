@@ -1,31 +1,167 @@
 package main
-
 //go:generate go-bindata -o ./bindata.go data/...
+
 import (
+  "text/template"
+  htemplate "html/template"
   "net/http"
   "strings"
   "fmt"
+  "net"
+  "strconv"
 )
+var data_header, _ = Asset("data/header.html")
+var data_footer, _ = Asset("data/footer.html")
+var data_home, _ = Asset("data/home.html")
+var data_profile, _ = Asset("data/profile.html")
+var data_banktransfer, _ = Asset("data/banktransfer.html")
 
-func respond(w http.ResponseWriter, r *http.Request) {
-  message := r.URL.Path
-  message = strings.TrimPrefix(message, "/")
-  message = "Hello " + message
-  w.Write([]byte(message))
+//DATABASE
+type User struct {
+	Ip string
+	Name string
+	Money float64
+	Url string
+}
+var d = make(map[string]*User)
+
+func strip_ip (addr string) string {
+	ip := addr
+	ip_arr := strings.Split(ip, ":")
+	ip = strings.Join(ip_arr[:len(ip_arr)-1], ":")
+	return ip
 }
 
-func main() {
-	data, err := Asset("data/foo.css")
-	if err != nil {
-			// asset was not found.
-			fmt.Println("asset not found")
+func get_userdata(ip string) User {
+	if _, ok := d[ip]; ok {
+	} else {
+		d[ip] = &User{ip,"Mr. Unknown",500,""}
+	}
+	d[ip].Url = Url //global var to userdata
+	return *d[ip]
+}
+
+func change_money(ip string, amount float64) {
+	d[ip].Money+=-amount//user
+}
+
+//RESPONSES
+func home (w http.ResponseWriter) {
+	tmpl, err := htemplate.New("home").Parse(string(data_home)+string(data_footer))
+	if err != nil { panic(err) }
+	err = tmpl.Execute(w, nil)
+	if err != nil { panic(err) }
+}
+
+func profile (ip string, path string, r *http.Request, w http.ResponseWriter) {
+	if r.Method == "POST" {
+		d[ip].Name=r.Form["name"][0]
+	}
+	userdata := get_userdata(ip)
+	if test := strings.Split(path, "/"); test[1] == "safe" {
+		tmpl, err := htemplate.New("xss").Parse(string(data_header)+string(data_profile)+string(data_footer))
+		if err != nil { panic(err) }
+		err = tmpl.Execute(w, userdata)
+		if err != nil { panic(err) }
+	} else {
+				fmt.Println(strings.Split(path, "/")[1])
+		tmpl, err := template.New("xss").Parse(string(data_header)+string(data_profile)+string(data_footer))
+		if err != nil { panic(err) }
+		err = tmpl.Execute(w, userdata)
+		if err != nil { panic(err) }
+	}
+}
+
+func banktransfer (ip string, path string, r *http.Request, w http.ResponseWriter) {
+	if r.Method == "POST" {
+		if s, err := strconv.ParseFloat(r.Form["amount"][0], 64); err == nil {
+			if s > 0 {
+				if t := strings.Split(path, "/"); t[1] == "safe" {
+					for _, element := range strings.Split(Url,"; ") {
+						fmt.Println("://"+element+path)
+						if strings.HasSuffix(r.Header.Get("Referer"), "://"+element+path) {
+							change_money(ip,s)
+						}
+					}
+					fmt.Println(r.Header.Get("Referer"))
+					fmt.Println("://localhost"+path)
+					if strings.HasSuffix(r.Header.Get("Referer"), "://localhost"+Port+path) {
+						change_money(ip,s)
+					}
+
+				} else {
+					d[ip].Money-=s//user
+				}
+			}
 		}
-	fmt.Println(data)
+	}
+	userdata := get_userdata(ip)
+	tmpl, err := htemplate.New("banktransfer").Parse(string(data_header)+string(data_banktransfer)+string(data_footer))
+	if err != nil { panic(err) }
+	err = tmpl.Execute(w, userdata)
+	if err != nil { panic(err) }
+}
 
-		// use asset data
+//GENERAL RESPONSE
+func respond(w http.ResponseWriter, r *http.Request) {
+  r.ParseForm() //needs to be done to make params accesible on post call
 
-  http.HandleFunc("/", respond)
-  if err := http.ListenAndServe(":8080", nil); err != nil {
-    panic(err)
+  path := r.URL.Path //get path of request
+  path = strings.TrimSuffix(path,"/") //trim pre and suffix from path
+
+  ip := strip_ip(r.RemoteAddr)
+
+  //fmt.Printf("%+v\n", r)
+  switch path {
+	case "/safe/xss/profile":
+		profile(ip, path, r, w)
+	case "/vulnerable/xss/profile":
+		profile(ip, path, r, w)
+	case "/safe/csrf/banktransfer":
+		banktransfer(ip, path, r, w)
+	case "/vulnerable/csrf/banktransfer":
+		banktransfer(ip, path, r, w)
+	case "/home":
+		home(w)
+	case "":
+		home(w)
+	default:
+		http.NotFound(w, r)
   }
+}
+
+//MAIN
+var Url string =""
+var Port string = ":8080"
+
+func main() {
+	http.HandleFunc("/", respond)
+
+	ifaces, _ := net.Interfaces()
+	// handle err
+	for _, i := range ifaces {
+		addrs, _ := i.Addrs()
+		// handle err
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+				case *net.IPNet:
+				ip = v.IP
+				case *net.IPAddr:
+				ip = v.IP
+			}
+			if strings.Contains(ip.String(), ".") { //ipv4 simplification
+				if !strings.Contains(ip.String(), "127.0.0.1") { //ipv4 simplification
+					Url += ip.String()+Port+"; "
+				}
+			}
+			// process IP address
+		}
+	}
+
+	fmt.Println("Starting webserver on localhost"+Port+"; "+Url)
+
+	if err := http.ListenAndServe(Port, nil); err != nil {
+		panic(err)
+	}
 }

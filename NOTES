@@ -9,3 +9,8 @@ go-bindata -o ./src/bindata.go data/...
 
 ##TODO
 qdd go generate command to make stuff go automatic -> while building if something changed
+
+
+###DEPS
+go 
+go get github.com/sqweek/dialog
