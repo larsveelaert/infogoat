@@ -9,6 +9,7 @@ import (
   "fmt"
   "net"
   "strconv"
+  "os"
 )
 var data_header, _ = Asset("data/header.html")
 var data_footer, _ = Asset("data/footer.html")
@@ -35,7 +36,7 @@ func strip_ip (addr string) string {
 func get_userdata(ip string) User {
 	if _, ok := d[ip]; ok {
 	} else {
-		d[ip] = &User{ip,"Mr. Unknown",500,""}
+		d[ip] = &User{ip,"Unknown",500,""}
 	}
 	d[ip].Url = Url //global var to userdata
 	return *d[ip]
@@ -46,10 +47,11 @@ func change_money(ip string, amount float64) {
 }
 
 //RESPONSES
-func home (w http.ResponseWriter) {
+func home (ip string, w http.ResponseWriter) {
+	userdata := get_userdata(ip)
 	tmpl, err := htemplate.New("home").Parse(string(data_home)+string(data_footer))
 	if err != nil { panic(err) }
-	err = tmpl.Execute(w, nil)
+	err = tmpl.Execute(w, userdata)
 	if err != nil { panic(err) }
 }
 
@@ -64,7 +66,6 @@ func profile (ip string, path string, r *http.Request, w http.ResponseWriter) {
 		err = tmpl.Execute(w, userdata)
 		if err != nil { panic(err) }
 	} else {
-				fmt.Println(strings.Split(path, "/")[1])
 		tmpl, err := template.New("xss").Parse(string(data_header)+string(data_profile)+string(data_footer))
 		if err != nil { panic(err) }
 		err = tmpl.Execute(w, userdata)
@@ -78,13 +79,10 @@ func banktransfer (ip string, path string, r *http.Request, w http.ResponseWrite
 			if s > 0 {
 				if t := strings.Split(path, "/"); t[1] == "safe" {
 					for _, element := range strings.Split(Url,"; ") {
-						fmt.Println("://"+element+path)
 						if strings.HasSuffix(r.Header.Get("Referer"), "://"+element+path) {
 							change_money(ip,s)
 						}
 					}
-					fmt.Println(r.Header.Get("Referer"))
-					fmt.Println("://localhost"+path)
 					if strings.HasSuffix(r.Header.Get("Referer"), "://localhost"+Port+path) {
 						change_money(ip,s)
 					}
@@ -122,9 +120,9 @@ func respond(w http.ResponseWriter, r *http.Request) {
 	case "/vulnerable/csrf/banktransfer":
 		banktransfer(ip, path, r, w)
 	case "/home":
-		home(w)
+		home(ip, w)
 	case "":
-		home(w)
+		home(ip, w)
 	default:
 		http.NotFound(w, r)
   }
@@ -132,10 +130,16 @@ func respond(w http.ResponseWriter, r *http.Request) {
 
 //MAIN
 var Url string =""
-var Port string = ":8080"
+var Port string = ":8090"
 
 func main() {
 	http.HandleFunc("/", respond)
+
+	if len(os.Args) > 1 {
+		Port = ":"+os.Args[1]
+	} else {
+		fmt.Println("If you want to run on a different port, add the portnumber after the command")
+	}
 
 	ifaces, _ := net.Interfaces()
 	// handle err
@@ -155,7 +159,6 @@ func main() {
 					Url += ip.String()+Port+"; "
 				}
 			}
-			// process IP address
 		}
 	}
 
